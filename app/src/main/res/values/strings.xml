@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">My-Photo</string>
+    <string name="api_url">https://api.galeri.infiniteuny.id/api/</string>
+    <string name="api_storage_url">https://api.galeri.infiniteuny.id/api/photo/</string>
+</resources>
