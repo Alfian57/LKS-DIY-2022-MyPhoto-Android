@@ -3,7 +3,6 @@ package com.postingan.my_photo.Api;
 import com.postingan.my_photo.Api.Response.CreateAlbumResponse;
 import com.postingan.my_photo.Api.Response.CreatePhotoResponse;
 import com.postingan.my_photo.Api.Response.GetAlbumResponse;
-import com.postingan.my_photo.Api.Response.ApiResponse;
 import com.postingan.my_photo.Api.Response.GetUserResponse;
 import com.postingan.my_photo.Api.Response.LoginResponse;
 import com.postingan.my_photo.Api.Response.GetPhotoResponse;

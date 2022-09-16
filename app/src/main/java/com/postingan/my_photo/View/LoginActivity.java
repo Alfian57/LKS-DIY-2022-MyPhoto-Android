@@ -13,9 +13,9 @@ import android.widget.Toast;
 
 import com.postingan.my_photo.Api.ApiConfig;
 import com.postingan.my_photo.Api.ApiRequest;
-import com.postingan.my_photo.Api.Response.ApiResponse;
 import com.postingan.my_photo.Api.Response.LoginResponse;
 import com.postingan.my_photo.Helper.Auth;
+import com.postingan.my_photo.ViewModel.LoginActivityViewModel;
 import com.postingan.my_photo.databinding.ActivityMainBinding;
 
 import retrofit2.Call;
@@ -24,7 +24,7 @@ import retrofit2.Response;
 
 public class LoginActivity extends AppCompatActivity {
     ActivityMainBinding binding;
-    ApiRequest apiRequest;
+    LoginActivityViewModel loginActivityViewModel;
     Auth auth;
 
     @Override
@@ -33,8 +33,27 @@ public class LoginActivity extends AppCompatActivity {
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        apiRequest = ApiConfig.getRetrofit(LoginActivity.this).create(ApiRequest.class);
+        loginActivityViewModel = new ViewModelProvider(this).get(LoginActivityViewModel.class);
         auth = new Auth(LoginActivity.this);
+
+        loginActivityViewModel.getLogin().observe(this, new Observer<LoginResponse>() {
+            @Override
+            public void onChanged(LoginResponse loginResponse) {
+                if (loginResponse != null){
+                    if (loginResponse.getData() != null){
+                        if (loginResponse.getData().getSignature() != null){
+                            auth.setToken(loginResponse.getData().getSignature());
+                            startActivity(new Intent(LoginActivity.this, HomeActivity.class));
+                            finish();
+                        }
+                    } else {
+                        Toast.makeText(LoginActivity.this, "Login Failed", Toast.LENGTH_SHORT).show();
+                    }
+                } else {
+                    Toast.makeText(LoginActivity.this, "Login Failed", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
 
         binding.btnRegisterLogin.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -58,39 +77,13 @@ public class LoginActivity extends AppCompatActivity {
                 }
 
                 if (!isError){
-                    apiLogin(binding.inputEmailLogin.getText().toString(), binding.inputPassLogin.getText().toString());
+                    loginActivityViewModel.login(
+                            binding.inputEmailLogin.getText().toString(),
+                            binding.inputPassLogin.getText().toString());
                 }
             }
         });
 
-    }
-
-    private void apiLogin(String email, String pass){
-        Call<LoginResponse> call = apiRequest.login(email, pass);
-        call.enqueue(new Callback<LoginResponse>() {
-            @Override
-            public void onResponse(@NonNull Call<LoginResponse> call, @NonNull Response<LoginResponse> response) {
-                if (response.body() != null){
-                    if (response.body().getData() != null){
-                        if (response.body().getData().getSignature() != null){
-                            auth.setToken(response.body().getData().getSignature());
-                            startActivity(new Intent(LoginActivity.this, HomeActivity.class));
-                            finish();
-                        }
-                    } else {
-                        Toast.makeText(LoginActivity.this, "Login Failed", Toast.LENGTH_SHORT).show();
-                    }
-                } else {
-                    Toast.makeText(LoginActivity.this, "Login Failed", Toast.LENGTH_SHORT).show();
-                }
-            }
-
-            @Override
-            public void onFailure(@NonNull Call<LoginResponse> call,@NonNull Throwable t) {
-                Log.e("login", t.toString());
-                Toast.makeText(LoginActivity.this, "Login Failed", Toast.LENGTH_SHORT).show();
-            }
-        });
     }
 
 }

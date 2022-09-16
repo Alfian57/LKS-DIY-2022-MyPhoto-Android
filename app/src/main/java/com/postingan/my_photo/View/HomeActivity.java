@@ -2,6 +2,8 @@ package com.postingan.my_photo.View;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.Observer;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.GridLayoutManager;
 
 import android.app.DownloadManager;
@@ -11,32 +13,23 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
-import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.Toast;
 
 import com.postingan.my_photo.Adapter.AlbumAdapter;
 import com.postingan.my_photo.Adapter.PhotoAdapter;
-import com.postingan.my_photo.Api.ApiConfig;
-import com.postingan.my_photo.Api.ApiRequest;
 import com.postingan.my_photo.Api.Response.CreateAlbumResponse;
 import com.postingan.my_photo.Api.Response.GetAlbumResponse;
-import com.postingan.my_photo.Api.Response.ApiResponse;
 import com.postingan.my_photo.Api.Response.GetPhotoResponse;
-import com.postingan.my_photo.Helper.Auth;
+import com.postingan.my_photo.ViewModel.HomeActivityViewModel;
 import com.postingan.my_photo.databinding.ActivityHomeBinding;
 
 import java.io.File;
 
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
-
 public class HomeActivity extends AppCompatActivity {
     ActivityHomeBinding binding;
-    ApiRequest apiRequest;
-    Auth auth;
+    HomeActivityViewModel homeActivityViewModel;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -44,97 +37,17 @@ public class HomeActivity extends AppCompatActivity {
         binding = ActivityHomeBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        apiRequest = ApiConfig.getRetrofit(HomeActivity.this).create(ApiRequest.class);
-        auth = new Auth(HomeActivity.this);
-
-        apiGetAlbum();
-        apiGetPhoto();
-
         binding.btnAddAlbum.setVisibility(View.INVISIBLE);
         binding.btnAddPhoto.setVisibility(View.INVISIBLE);
 
-        binding.btnAddHome.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (binding.btnAddAlbum.getVisibility() == View.INVISIBLE) {
-                    binding.btnAddAlbum.setVisibility(View.VISIBLE);
-                    binding.btnAddPhoto.setVisibility(View.VISIBLE);
-                } else {
-                    binding.btnAddAlbum.setVisibility(View.INVISIBLE);
-                    binding.btnAddPhoto.setVisibility(View.INVISIBLE);
-                }
-            }
-        });
+        homeActivityViewModel = new ViewModelProvider(this).get(HomeActivityViewModel.class);
 
-        binding.btnAddAlbum.setOnClickListener(new View.OnClickListener() {
+        homeActivityViewModel.getAlbum().observe(this, new Observer<GetAlbumResponse>() {
             @Override
-            public void onClick(View v) {
-                final EditText editText = new EditText(HomeActivity.this);
-                editText.setHint("Album Name");
-                AlertDialog.Builder builder = new AlertDialog.Builder(HomeActivity.this);
-                builder.setTitle("Create Album");
-                builder.setView(editText);
-                builder.setNegativeButton("CANCEL", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        dialog.cancel();
-                    }
-                });
-                builder.setPositiveButton("CREATE", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        if (editText.getText().length() == 0){
-                            editText.setError("Field Still Empty");
-                        } else {
-                            apiCreateAlbum(editText.getText().toString());
-                        }
-                    }
-                });
-
-                AlertDialog alertDialog = builder.create();
-                alertDialog.show();
-            }
-        });
-
-        binding.btnAddPhoto.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Toast.makeText(HomeActivity.this, "Pick An Album First", Toast.LENGTH_SHORT).show();
-            }
-        });
-    }
-
-    private void apiCreateAlbum(String name){
-        Call<CreateAlbumResponse> call = apiRequest.createAlbum(auth.getToken(), name);
-        call.enqueue(new Callback<CreateAlbumResponse>() {
-            @Override
-            public void onResponse(Call<CreateAlbumResponse> call, Response<CreateAlbumResponse> response) {
-                if (response.body() != null){
-                    if(response.body().getData() != null){
-                        Toast.makeText(HomeActivity.this, "Success To Create Album", Toast.LENGTH_SHORT).show();
-                        Intent i = new Intent(HomeActivity.this, DetailActivity.class);
-                        i.putExtra("albumId", response.body().getData().getId());
-                        startActivity(i);
-                    }
-                }
-            }
-
-            @Override
-            public void onFailure(Call<CreateAlbumResponse> call, Throwable t) {
-                Log.e("createAlbum", t.toString());
-                Toast.makeText(HomeActivity.this, "Failed To Create Album", Toast.LENGTH_SHORT).show();
-            }
-        });
-    }
-
-    private void apiGetAlbum(){
-        Call<GetAlbumResponse> call = apiRequest.getAlbum(auth.getToken());
-        call.enqueue(new Callback<GetAlbumResponse>() {
-            @Override
-            public void onResponse(Call<GetAlbumResponse> call, Response<GetAlbumResponse> response) {
-                if (response.body() != null){
-                    if(response.body().getAlbums() != null){
-                        AlbumAdapter albumAdapter = new AlbumAdapter(response.body().getAlbums(), new AlbumAdapter.OnItemClickListener() {
+            public void onChanged(GetAlbumResponse getAlbumResponse) {
+                if (getAlbumResponse != null){
+                    if(getAlbumResponse.getAlbums() != null){
+                        AlbumAdapter albumAdapter = new AlbumAdapter(getAlbumResponse.getAlbums(), new AlbumAdapter.OnItemClickListener() {
                             @Override
                             public void onDetailClick(int id) {
                                 Intent i = new Intent(HomeActivity.this, DetailActivity.class);
@@ -147,25 +60,18 @@ public class HomeActivity extends AppCompatActivity {
                         binding.rvAlbums.setAdapter(albumAdapter);
                         albumAdapter.notifyDataSetChanged();
                     }
+                } else {
+                    Toast.makeText(HomeActivity.this, "Failed To Get Albums", Toast.LENGTH_SHORT).show();
                 }
             }
-
-            @Override
-            public void onFailure(Call<GetAlbumResponse> call, Throwable t) {
-                Log.e("getAlbum", t.toString());
-                Toast.makeText(HomeActivity.this, "Failed To Get Album", Toast.LENGTH_SHORT).show();
-            }
         });
-    }
 
-    private void apiGetPhoto(){
-        Call<GetPhotoResponse> call = apiRequest.getPhoto(auth.getToken());
-        call.enqueue(new Callback<GetPhotoResponse>() {
+        homeActivityViewModel.getPhoto().observe(this, new Observer<GetPhotoResponse>() {
             @Override
-            public void onResponse(Call<GetPhotoResponse> call, Response<GetPhotoResponse> response) {
-                if (response.body() != null){
-                    if(response.body().getPhoto() != null){
-                        PhotoAdapter photoAdapter = new PhotoAdapter(response.body().getPhoto(), HomeActivity.this, new PhotoAdapter.OnItemClickListener() {
+            public void onChanged(GetPhotoResponse getPhotoResponse) {
+                if (getPhotoResponse != null){
+                    if(getPhotoResponse.getPhoto() != null){
+                        PhotoAdapter photoAdapter = new PhotoAdapter(getPhotoResponse.getPhoto(), HomeActivity.this, new PhotoAdapter.OnItemClickListener() {
                             @Override
                             public void onDeleteClick(String name, String Url) {
                                 AlertDialog.Builder builder = new AlertDialog.Builder(HomeActivity.this);
@@ -191,15 +97,79 @@ public class HomeActivity extends AppCompatActivity {
                         binding.rvPhotos.setAdapter(photoAdapter);
                         photoAdapter.notifyDataSetChanged();
                     }
+                }else {
+                    Toast.makeText(HomeActivity.this, "Failed To Get Photos", Toast.LENGTH_SHORT).show();
                 }
             }
+        });
 
+        homeActivityViewModel.getCreateAlbum().observe(this, new Observer<CreateAlbumResponse>() {
             @Override
-            public void onFailure(Call<GetPhotoResponse> call, Throwable t) {
-                Log.e("getPhoto", t.toString());
-                Toast.makeText(HomeActivity.this, "Failed To Get Photo", Toast.LENGTH_SHORT).show();
+            public void onChanged(CreateAlbumResponse createAlbumResponse) {
+                if (createAlbumResponse != null){
+                    if(createAlbumResponse.getData() != null){
+                        Intent i = new Intent(HomeActivity.this, DetailActivity.class);
+                        i.putExtra("albumId", createAlbumResponse.getData().getId());
+                        startActivity(i);
+                        Toast.makeText(HomeActivity.this, "Success To Create Album", Toast.LENGTH_SHORT).show();
+                    }
+                }
             }
         });
+
+        binding.btnAddHome.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (binding.btnAddAlbum.getVisibility() == View.INVISIBLE) {
+                    binding.btnAddAlbum.setVisibility(View.VISIBLE);
+                    binding.btnAddPhoto.setVisibility(View.VISIBLE);
+                } else {
+                    binding.btnAddAlbum.setVisibility(View.INVISIBLE);
+                    binding.btnAddPhoto.setVisibility(View.INVISIBLE);
+                }
+            }
+        });
+
+        binding.btnAddAlbum.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showAlertDialog();
+            }
+        });
+
+        binding.btnAddPhoto.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Toast.makeText(HomeActivity.this, "Pick An Album First", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void showAlertDialog(){
+        final EditText editText = new EditText(HomeActivity.this);
+        editText.setHint("Album Name");
+        AlertDialog.Builder builder = new AlertDialog.Builder(HomeActivity.this);
+        builder.setTitle("Create Album");
+        builder.setView(editText);
+        builder.setNegativeButton("CANCEL", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.cancel();
+            }
+        });
+        builder.setPositiveButton("CREATE", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                if (editText.getText().length() == 0){
+                    editText.setError("Field Still Empty");
+                } else {
+                    homeActivityViewModel.createAlbum(editText.getText().toString());
+                }
+            }
+        });
+
+        AlertDialog alertDialog = builder.create();
+        alertDialog.show();
     }
 
     private void downloadImageNew(String filename, String downloadUrlOfImage){
